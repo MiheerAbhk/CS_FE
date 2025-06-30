@@ -29,10 +29,10 @@ const Login = () => {
       }
       else if (role === 'FlightOwner') {
         navigate('/flight-owner/dashboard');
-     } 
+           } 
       else if (role === 'Passenger') {
         navigate('/passenger/dashboard');
-     }
+           }
 
     } catch (err) {
       setError('Invalid email or password.');
@@ -48,6 +48,7 @@ const Login = () => {
               <h2 className="card-title text-center mb-4">SimplyFly Login</h2>
               <form onSubmit={handleLogin}>
                 {error && <div className="alert alert-danger">{error}</div>}
+                }
 
                 <div className="mb-3">
                   <label className="form-label">Email address</label>
