@@ -14,7 +14,7 @@ const BookFlight = () => {
   useEffect(() => {
     const fetchFlights = async () => {
       try {
-        const res = await axios.get('https://localhost:7132/api/Flights', {
+        const res = await axios.get('https://localhost:7099/api/Flights', {
           headers: { Authorization: `Bearer ${token}` }
         });
 
