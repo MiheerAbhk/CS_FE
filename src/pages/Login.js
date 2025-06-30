@@ -15,7 +15,7 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post('https://localhost:7099/api/Auth/login', { email, password });
+      const response = await axios.post('/Auth/login', { email, password });
       const token = response.data.token;
 
       // Decode the JWT to extract userId and role
@@ -31,7 +31,7 @@ const Login = () => {
         navigate('/flight-owner/dashboard');
      } 
       else if (role === 'Passenger') {
-        navigate('/user/dashboard');
+        navigate('/passenger/dashboard');
      }
 
     } catch (err) {
@@ -41,32 +41,40 @@ const Login = () => {
 
   return (
     <div className="container mt-5">
-      <h2>Login</h2>
-      <form onSubmit={handleLogin} className="col-md-6">
-        {error && <div className="alert alert-danger">{error}</div>}
+      <div className="row justify-content-center">
+        <div className="col-md-6">
+          <div className="card shadow">
+            <div className="card-body">
+              <h2 className="card-title text-center mb-4">SimplyFly Login</h2>
+              <form onSubmit={handleLogin}>
+                {error && <div className="alert alert-danger">{error}</div>}
 
-        <div className="mb-3">
-          <label className="form-label">Email address</label>
-          <input
-            type="email"
-            className="form-control"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required />
+                <div className="mb-3">
+                  <label className="form-label">Email address</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Password</label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required />
+                </div>
+
+                <button type="submit" className="btn btn-primary w-100">Login</button>
+              </form>
+            </div>
+          </div>
         </div>
-
-        <div className="mb-3">
-          <label className="form-label">Password</label>
-          <input
-            type="password"
-            className="form-control"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required />
-        </div>
-
-        <button type="submit" className="btn btn-primary">Login</button>
-      </form>
+      </div>
     </div>
   );
 };
