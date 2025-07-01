@@ -42,9 +42,7 @@ function App() {
         <Route path="/flight-owner/dashboard" element={<RequireAuth allowedRoles={['FlightOwner']}><FlightOwnerDashboard /></RequireAuth>} />
         <Route path="/flight-owner/airline" element={<RequireAuth allowedRoles={['FlightOwner']}><ManageAirline /></RequireAuth>} />
         <Route path="/flight-owner/flights" element={<RequireAuth allowedRoles={['FlightOwner']}><ManageFlights /></RequireAuth>} />
-              <Route path="/flight-owner/bookings" element={<RequireAuth allowedRoles={['FlightOwner']}><ViewBookings /></RequireAuth>} />
-              <Route path="/flight-owner/bookings" element={<RequireAuth allowedRoles={['FlightOwner']}><OwnerFlightBookings /></RequireAuth>} />
-
+        <Route path="/flight-owner/bookings" element={<RequireAuth allowedRoles={['FlightOwner']}><OwnerFlightBookings /></RequireAuth>} />
 
         {/* Passenger */}
         <Route path="/passenger/dashboard" element={<RequireAuth allowedRoles={['Passenger']}><PassengerDashboard /></RequireAuth>} />
