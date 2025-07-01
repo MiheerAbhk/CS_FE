@@ -33,23 +33,37 @@ function App() {
 
         {/* Admin */}
         <Route path="/admin/dashboard" element={<RequireAuth allowedRoles={['Admin']}><AdminDashboard /></RequireAuth>} />
+        }
         <Route path="/admin/users" element={<RequireAuth allowedRoles={['Admin']}><ViewUsers /></RequireAuth>} />
+        }
         <Route path="/admin/owners" element={<RequireAuth allowedRoles={['Admin']}><ManageFlightOwners /></RequireAuth>} />
+        }
         <Route path="/admin/routes" element={<RequireAuth allowedRoles={['Admin']}><ManageRoutes /></RequireAuth>} />
+        }
         <Route path="/admin/bookings" element={<RequireAuth allowedRoles={['Admin']}><ViewBookings /></RequireAuth>} />
+        }
 
         {/* Flight Owner */}
         <Route path="/flight-owner/dashboard" element={<RequireAuth allowedRoles={['FlightOwner']}><FlightOwnerDashboard /></RequireAuth>} />
+        }
         <Route path="/flight-owner/airline" element={<RequireAuth allowedRoles={['FlightOwner']}><ManageAirline /></RequireAuth>} />
+        }
         <Route path="/flight-owner/flights" element={<RequireAuth allowedRoles={['FlightOwner']}><ManageFlights /></RequireAuth>} />
+        }
         <Route path="/flight-owner/bookings" element={<RequireAuth allowedRoles={['FlightOwner']}><OwnerFlightBookings /></RequireAuth>} />
+        }
 
         {/* Passenger */}
         <Route path="/passenger/dashboard" element={<RequireAuth allowedRoles={['Passenger']}><PassengerDashboard /></RequireAuth>} />
+        }
         <Route path="/passenger/search" element={<RequireAuth allowedRoles={['Passenger']}><FlightSearch /></RequireAuth>} />
+        }
         <Route path="/passenger/book/:routeId" element={<RequireAuth allowedRoles={['Passenger']}><BookFlights /></RequireAuth>} />
+        }
         <Route path="/passenger/bookings" element={<RequireAuth allowedRoles={['Passenger']}><MyBookings /></RequireAuth>} />
+        }
         <Route path="/passenger/payments" element={<RequireAuth allowedRoles={['Passenger']}><Payment /></RequireAuth>} />
+        }
       </Routes>
     </Router>
   );
