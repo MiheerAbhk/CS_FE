@@ -1,65 +1,111 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '../api/axios';
+import { Link } from 'react-router-dom';
 
 const FlightSearch = () => {
-  const [flights, setFlights] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+    const [routes, setRoutes] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [loading, setLoading] = useState(true);
 
-  const fetchFlights = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get('https://localhost:7132/api/FlightRoutes', {
-        headers: {
-          Authorization: `Bearer ${token}`
+    const fetchRoutes = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.get('/FlightRoutes', {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            setRoutes(res.data);
+        } catch (err) {
+            console.error('Error fetching routes:', err);
+        } finally {
+            setLoading(false);
         }
-      });
-      setFlights(res.data);
-    } catch (err) {
-      console.error('Error fetching flights:', err);
-    }
-  };
+    };
 
-  useEffect(() => {
-    fetchFlights();
-  }, []);
+    useEffect(() => {
+        fetchRoutes();
+    }, []);
 
-  const filteredFlights = flights.filter(f =>
-    f.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    f.destination.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    const filteredRoutes = routes.filter(route =>
+        route.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        route.destination.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  return (
-    <div className="container mt-4">
-      <h3>Search Flights</h3>
-      <input
-        type="text"
-        className="form-control mb-3"
-        placeholder="Enter source or destination..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
-
-      {filteredFlights.length === 0 && <p>No flights found.</p>}
-
-      <ul className="list-group">
-        {filteredFlights.map((flight) => (
-          <li key={flight.id} className="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-              <strong>{flight.source} → {flight.destination}</strong><br />
-              Duration: {flight.duration}<br />
-              Distance: {flight.distance} km
+    if (loading) {
+        return (
+            <div className="container mt-4">
+                <div className="text-center">
+                    <div className="spinner-border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                </div>
             </div>
-            <button
-              className="btn btn-primary"
-              onClick={() => window.location.href = `/user/book/${flight.id}`}
-            >
-              View Flights
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+        );
+    }
+
+    return (
+        <div className="container mt-4">
+            <h3 className="mb-4">Search Flight Routes</h3>
+
+            <div className="row mb-4">
+                <div className="col-md-6">
+                    <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Search by source or destination city..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {filteredRoutes.length === 0 ? (
+                <div className="alert alert-info">
+                    <i className="fas fa-info-circle me-2"></i>
+                    No flight routes found matching your search.
+                </div>
+            ) : (
+                <div className="row">
+                    {filteredRoutes.map((route) => (
+                        <div key={route.id} className="col-md-6 col-lg-4 mb-3">
+                            <div className="card h-100 shadow-sm">
+                                <div className="card-body">
+                                    <h5 className="card-title">
+                                        {route.source} → {route.destination}
+                                    </h5>
+                                    <div className="card-text">
+                                        <p className="mb-2">
+                                            <i className="fas fa-clock me-2"></i>
+                                            <strong>Departure:</strong> {new Date(route.departureTime).toLocaleString()}
+                                        </p>
+                                        <p className="mb-2">
+                                            <i className="fas fa-clock me-2"></i>
+                                            <strong>Arrival:</strong> {new Date(route.arrivalTime).toLocaleString()}
+                                        </p>
+                                        <p className="mb-2">
+                                            <i className="fas fa-rupee-sign me-2"></i>
+                                            <strong>Fare:</strong> ₹{route.fare}
+                                        </p>
+                                        <p className="mb-2">
+                                            <i className="fas fa-suitcase me-2"></i>
+                                            <strong>Baggage:</strong> {route.baggageCheckInKg}kg + {route.cabinBagKg}kg cabin
+                                        </p>
+                                    </div>
+                                    <Link
+                                        to={`/passenger/book/${route.id}`}
+                                        className="btn btn-primary w-100"
+                                    >
+                                        View Available Flights
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 };
 
 export default FlightSearch;
