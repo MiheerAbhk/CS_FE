@@ -13,7 +13,39 @@ const Payment = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const pending = res.data.filter(b => b.bookingStatus === 'Pending');
-                setPendingBookings(pending);
+                
+                // Fetch route information for each booking to get the fare
+                const bookingsWithFare = await Promise.all(
+                    pending.map(async (booking) => {
+                        try {
+                            // Get flight details to find route ID
+                            const flightRes = await axios.get(`/Flights/${booking.flightId}`, {
+                                headers: { Authorization: `Bearer ${token}` }
+                            });
+                            
+                            // Get route details to get fare
+                            const routeRes = await axios.get(`/FlightRoutes/${flightRes.data.flightRouteId}`, {
+                                headers: { Authorization: `Bearer ${token}` }
+                            });
+                            
+                            return {
+                                ...booking,
+                                fare: routeRes.data.fare,
+                                routeInfo: routeRes.data
+                            };
+                        } catch (err) {
+                            console.error('Error fetching fare for booking:', booking.id, err);
+                            // Fallback to a default fare if API call fails
+                            return {
+                                ...booking,
+                                fare: 2500, // Default fallback fare
+                                routeInfo: null
+                            };
+                        }
+                    })
+                );
+                
+                setPendingBookings(bookingsWithFare);
             } catch (err) {
                 console.error('Error fetching bookings:', err);
             } finally {
@@ -23,6 +55,12 @@ const Payment = () => {
 
         fetchPendingBookings();
     }, [token]);
+
+    const calculateTotalAmount = (booking) => {
+        const seatCount = booking.seatNumbers?.length || 1;
+        const farePerSeat = booking.fare || 2500; // Fallback fare
+        return farePerSeat * seatCount;
+    };
 
     const handlePayment = async (bookingId, paymentMethod = 'Credit Card') => {
         try {
@@ -48,6 +86,7 @@ const Payment = () => {
                     <div className="spinner-border" role="status">
                         <span className="visually-hidden">Loading...</span>
                     </div>
+                    <p className="mt-2">Loading payment information...</p>
                 </div>
             </div>
         );
@@ -55,12 +94,21 @@ const Payment = () => {
 
     return (
         <div className="container mt-4">
-            <h3 className="mb-4">Pending Payments</h3>
+            <h3 className="mb-4">
+                <i className="fas fa-credit-card me-2"></i>
+                Pending Payments
+            </h3>
 
             {pendingBookings.length === 0 ? (
                 <div className="alert alert-success">
                     <i className="fas fa-check-circle me-2"></i>
                     No pending payments. All your bookings are up to date!
+                    <div className="mt-2">
+                        <a href="/passenger/search" className="btn btn-primary btn-sm">
+                            <i className="fas fa-search me-2"></i>
+                            Search for new flights
+                        </a>
+                    </div>
                 </div>
             ) : (
                 <div className="row">
@@ -82,19 +130,34 @@ const Payment = () => {
                                     <p className="card-text">
                                         <i className="fas fa-chair me-2"></i>
                                         <strong>Seats:</strong> {booking.seatNumbers?.join(', ') || 'N/A'}
+                                        <span className="badge bg-info ms-2">
+                                            {booking.seatNumbers?.length || 1} seat{(booking.seatNumbers?.length || 1) > 1 ? 's' : ''}
+                                        </span>
                                     </p>
                                     <p className="card-text">
                                         <i className="fas fa-calendar me-2"></i>
                                         <strong>Booking Date:</strong> {new Date(booking.bookingDate).toLocaleDateString()}
                                     </p>
 
-                                    <hr />
-
-                                    <div className="d-flex justify-content-between align-items-center mb-3">
-                                        <strong>Total Amount:</strong>
-                                        <span className="h5 text-primary mb-0">
-                                            ₹{(booking.seatNumbers?.length || 1) * 2500}
-                                        </span>
+                                    {/* Fare Breakdown */}
+                                    <div className="alert alert-light border">
+                                        <h6 className="mb-2">
+                                            <i className="fas fa-calculator me-2"></i>
+                                            Fare Breakdown
+                                        </h6>
+                                        <div className="d-flex justify-content-between">
+                                            <span>Fare per seat:</span>
+                                            <span>₹{booking.fare}</span>
+                                        </div>
+                                        <div className="d-flex justify-content-between">
+                                            <span>Number of seats:</span>
+                                            <span>{booking.seatNumbers?.length || 1}</span>
+                                        </div>
+                                        <hr className="my-2" />
+                                        <div className="d-flex justify-content-between fw-bold">
+                                            <span>Total Amount:</span>
+                                            <span className="text-primary">₹{calculateTotalAmount(booking)}</span>
+                                        </div>
                                     </div>
 
                                     <div className="d-grid gap-2">
@@ -103,21 +166,21 @@ const Payment = () => {
                                             onClick={() => handlePayment(booking.id, 'Credit Card')}
                                         >
                                             <i className="fas fa-credit-card me-2"></i>
-                                            Pay with Credit Card
+                                            Pay ₹{calculateTotalAmount(booking)} - Credit Card
                                         </button>
                                         <button
                                             className="btn btn-outline-success"
                                             onClick={() => handlePayment(booking.id, 'Debit Card')}
                                         >
                                             <i className="fas fa-credit-card me-2"></i>
-                                            Pay with Debit Card
+                                            Pay ₹{calculateTotalAmount(booking)} - Debit Card
                                         </button>
                                         <button
                                             className="btn btn-outline-success"
                                             onClick={() => handlePayment(booking.id, 'UPI')}
                                         >
                                             <i className="fas fa-mobile-alt me-2"></i>
-                                            Pay with UPI
+                                            Pay ₹{calculateTotalAmount(booking)} - UPI
                                         </button>
                                     </div>
                                 </div>
