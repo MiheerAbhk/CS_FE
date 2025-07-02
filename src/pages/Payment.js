@@ -31,15 +31,41 @@ const Payment = () => {
                             return {
                                 ...booking,
                                 fare: routeRes.data.fare,
-                                routeInfo: routeRes.data
+                                routeInfo: routeRes.data,
+                                flightInfo: flightRes.data
                             };
                         } catch (err) {
                             console.error('Error fetching fare for booking:', booking.id, err);
-                            // Fallback to a default fare if API call fails
+                            
+                            // Try to get fare from FlightRoutes API directly
+                            try {
+                                const allRoutesRes = await axios.get('/FlightRoutes', {
+                                    headers: { Authorization: `Bearer ${token}` }
+                                });
+                                
+                                // Find the route that matches this booking's source and destination
+                                const matchingRoute = allRoutesRes.data.find(route => 
+                                    route.source === booking.source && route.destination === booking.destination
+                                );
+                                
+                                if (matchingRoute) {
+                                    return {
+                                        ...booking,
+                                        fare: matchingRoute.fare,
+                                        routeInfo: matchingRoute,
+                                        flightInfo: null
+                                    };
+                                }
+                            } catch (routeErr) {
+                                console.error('Error fetching routes:', routeErr);
+                            }
+                            
+                            // Final fallback to a default fare if all API calls fail
                             return {
                                 ...booking,
                                 fare: 2500, // Default fallback fare
-                                routeInfo: null
+                                routeInfo: null,
+                                flightInfo: null
                             };
                         }
                     })
@@ -122,7 +148,10 @@ const Payment = () => {
                                     </h6>
                                 </div>
                                 <div className="card-body">
-                                    <h5 className="card-title">{booking.flightNumber}</h5>
+                                    <h5 className="card-title">
+                                        <i className="fas fa-plane me-2"></i>
+                                        {booking.flightNumber}
+                                    </h5>
                                     <p className="card-text">
                                         <i className="fas fa-route me-2"></i>
                                         <strong>Route:</strong> {booking.source} → {booking.destination}
@@ -147,16 +176,16 @@ const Payment = () => {
                                         </h6>
                                         <div className="d-flex justify-content-between">
                                             <span>Fare per seat:</span>
-                                            <span>₹{booking.fare}</span>
+                                            <span className="fw-bold">₹{booking.fare}</span>
                                         </div>
                                         <div className="d-flex justify-content-between">
                                             <span>Number of seats:</span>
-                                            <span>{booking.seatNumbers?.length || 1}</span>
+                                            <span className="fw-bold">{booking.seatNumbers?.length || 1}</span>
                                         </div>
                                         <hr className="my-2" />
-                                        <div className="d-flex justify-content-between fw-bold">
+                                        <div className="d-flex justify-content-between fw-bold text-primary">
                                             <span>Total Amount:</span>
-                                            <span className="text-primary">₹{calculateTotalAmount(booking)}</span>
+                                            <span className="fs-5">₹{calculateTotalAmount(booking)}</span>
                                         </div>
                                     </div>
 
