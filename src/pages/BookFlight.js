@@ -19,20 +19,60 @@ const BookFlight = () => {
         const fetchData = async () => {
             try {
                 setError(null);
+                console.log('Fetching data for routeId:', routeId);
                 
                 // First fetch the route information using the routeId from URL
                 const routeRes = await axios.get(`/FlightRoutes/${routeId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setRouteInfo(routeRes.data);
-                console.log('Route Info:', routeRes.data); // Debug log
+                console.log('Route Info:', routeRes.data);
 
-                // Then fetch flights for this route
-                const flightsRes = await axios.get(`/Flights/route/${routeId}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setFlights(flightsRes.data);
-                console.log('Flights:', flightsRes.data); // Debug log
+                // Try multiple approaches to fetch flights for this route
+                let flightsData = [];
+                
+                // Approach 1: Try the route-specific endpoint
+                try {
+                    const flightsRes = await axios.get(`/Flights/route/${routeId}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    flightsData = flightsRes.data;
+                    console.log('Flights from route endpoint:', flightsData);
+                } catch (routeFlightErr) {
+                    console.log('Route-specific flights endpoint failed, trying alternative approach...');
+                    
+                    // Approach 2: Get all flights and filter by route
+                    try {
+                        const allFlightsRes = await axios.get('/Flights', {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        
+                        // Filter flights that match this route's source and destination
+                        flightsData = allFlightsRes.data.filter(flight => 
+                            flight.source === routeRes.data.source && 
+                            flight.destination === routeRes.data.destination
+                        );
+                        console.log('All flights:', allFlightsRes.data);
+                        console.log('Filtered flights for route:', flightsData);
+                    } catch (allFlightsErr) {
+                        console.error('Failed to fetch all flights:', allFlightsErr);
+                        
+                        // Approach 3: Try with flightRouteId filter
+                        try {
+                            const flightsByRouteIdRes = await axios.get('/Flights', {
+                                headers: { Authorization: `Bearer ${token}` },
+                                params: { flightRouteId: routeId }
+                            });
+                            flightsData = flightsByRouteIdRes.data;
+                            console.log('Flights by routeId param:', flightsData);
+                        } catch (routeIdErr) {
+                            console.error('Failed to fetch flights by routeId param:', routeIdErr);
+                        }
+                    }
+                }
+
+                setFlights(flightsData);
+                console.log('Final flights data:', flightsData);
 
             } catch (err) {
                 console.error('Error fetching data:', err);
@@ -47,6 +87,21 @@ const BookFlight = () => {
                     if (route) {
                         setRouteInfo(route);
                         console.log('Fallback Route Info:', route);
+                        
+                        // Try to get flights for this route using the fallback route info
+                        try {
+                            const allFlightsRes = await axios.get('/Flights', {
+                                headers: { Authorization: `Bearer ${token}` }
+                            });
+                            const matchingFlights = allFlightsRes.data.filter(flight => 
+                                flight.source === route.source && 
+                                flight.destination === route.destination
+                            );
+                            setFlights(matchingFlights);
+                            console.log('Fallback flights:', matchingFlights);
+                        } catch (fallbackFlightErr) {
+                            console.error('Fallback flight fetch failed:', fallbackFlightErr);
+                        }
                     }
                 } catch (fallbackErr) {
                     console.error('Fallback route fetch failed:', fallbackErr);
@@ -143,6 +198,10 @@ const BookFlight = () => {
                             <i className="fas fa-refresh me-2"></i>
                             Retry
                         </button>
+                        <a href="/passenger/search" className="btn btn-secondary btn-sm ms-2">
+                            <i className="fas fa-arrow-left me-2"></i>
+                            Back to Search
+                        </a>
                     </div>
                 </div>
             </div>
@@ -151,14 +210,29 @@ const BookFlight = () => {
 
     return (
         <div className="container mt-4">
-            <h3 className="mb-4">
-                <i className="fas fa-plane me-2"></i>
-                Available Flights
-            </h3>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h3 className="mb-0">
+                    <i className="fas fa-plane me-2"></i>
+                    Available Flights
+                </h3>
+                <a href="/passenger/search" className="btn btn-outline-secondary">
+                    <i className="fas fa-arrow-left me-2"></i>
+                    Back to Search
+                </a>
+            </div>
+
+            {/* Debug Information (remove in production) */}
+            <div className="alert alert-info mb-3">
+                <small>
+                    <strong>Debug Info:</strong> Route ID: {routeId} | 
+                    Route Info: {routeInfo ? 'Loaded' : 'Missing'} | 
+                    Flights Found: {flights.length}
+                </small>
+            </div>
 
             {/* Route Information */}
             {routeInfo && (
-                <div className="alert alert-info mb-4">
+                <div className="alert alert-primary mb-4">
                     <div className="row align-items-center">
                         <div className="col-md-8">
                             <h5 className="alert-heading mb-2">
@@ -209,49 +283,85 @@ const BookFlight = () => {
 
             {flights.length === 0 ? (
                 <div className="alert alert-warning">
-                    <i className="fas fa-exclamation-triangle me-2"></i>
-                    No flights found for this route.
-                    <div className="mt-2">
-                        <a href="/passenger/search" className="btn btn-primary btn-sm">
-                            <i className="fas fa-search me-2"></i>
-                            Search Other Routes
-                        </a>
+                    <div className="d-flex align-items-center">
+                        <i className="fas fa-exclamation-triangle me-3 fa-2x"></i>
+                        <div>
+                            <h5 className="mb-1">No flights found for this route</h5>
+                            <p className="mb-2">
+                                {routeInfo ? 
+                                    `No flights are currently available for the route ${routeInfo.source} → ${routeInfo.destination}.` :
+                                    'Unable to load flight information for this route.'
+                                }
+                            </p>
+                            <div>
+                                <a href="/passenger/search" className="btn btn-primary btn-sm me-2">
+                                    <i className="fas fa-search me-2"></i>
+                                    Search Other Routes
+                                </a>
+                                <button className="btn btn-outline-secondary btn-sm" onClick={() => window.location.reload()}>
+                                    <i className="fas fa-refresh me-2"></i>
+                                    Refresh Page
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : (
-                <div className="row mb-4">
-                    {flights.map(flight => (
-                        <div key={flight.id} className="col-md-6 mb-3">
-                            <div className="card shadow-sm">
-                                <div className="card-body">
-                                    <h5 className="card-title">
-                                        <i className="fas fa-plane me-2"></i>
-                                        {flight.flightNumber}
-                                    </h5>
-                                    <p className="card-text">
-                                        <strong>Airline:</strong> {flight.airlineName}<br />
-                                        <strong>Departure:</strong> {new Date(flight.departureTime).toLocaleString()}<br />
-                                        <strong>Arrival:</strong> {new Date(flight.arrivalTime).toLocaleString()}<br />
-                                        <strong>Total Seats:</strong> {flight.totalSeats}
-                                        {routeInfo && (
-                                            <>
-                                                <br />
-                                                <strong>Fare per seat:</strong> <span className="text-success">₹{getFarePerSeat()}</span>
-                                            </>
-                                        )}
-                                    </p>
-                                    <button
-                                        className="btn btn-primary w-100"
-                                        onClick={() => handleViewSeats(flight.id)}
-                                    >
-                                        <i className="fas fa-chair me-2"></i>
-                                        Select Seats
-                                    </button>
+                <>
+                    <div className="alert alert-success mb-4">
+                        <i className="fas fa-check-circle me-2"></i>
+                        Found {flights.length} flight{flights.length > 1 ? 's' : ''} for this route
+                    </div>
+                    
+                    <div className="row mb-4">
+                        {flights.map(flight => (
+                            <div key={flight.id} className="col-md-6 col-lg-4 mb-3">
+                                <div className="card shadow-sm h-100">
+                                    <div className="card-body">
+                                        <h5 className="card-title">
+                                            <i className="fas fa-plane me-2 text-primary"></i>
+                                            {flight.flightNumber}
+                                        </h5>
+                                        <div className="card-text">
+                                            <p className="mb-2">
+                                                <i className="fas fa-building me-2 text-muted"></i>
+                                                <strong>Airline:</strong> {flight.airlineName}
+                                            </p>
+                                            <p className="mb-2">
+                                                <i className="fas fa-clock me-2 text-muted"></i>
+                                                <strong>Departure:</strong><br />
+                                                <small>{new Date(flight.departureTime).toLocaleString()}</small>
+                                            </p>
+                                            <p className="mb-2">
+                                                <i className="fas fa-clock me-2 text-muted"></i>
+                                                <strong>Arrival:</strong><br />
+                                                <small>{new Date(flight.arrivalTime).toLocaleString()}</small>
+                                            </p>
+                                            <p className="mb-2">
+                                                <i className="fas fa-chair me-2 text-muted"></i>
+                                                <strong>Total Seats:</strong> {flight.totalSeats}
+                                            </p>
+                                            {routeInfo && (
+                                                <p className="mb-0">
+                                                    <i className="fas fa-rupee-sign me-2 text-success"></i>
+                                                    <strong>Fare per seat:</strong> 
+                                                    <span className="text-success fw-bold">₹{getFarePerSeat()}</span>
+                                                </p>
+                                            )}
+                                        </div>
+                                        <button
+                                            className="btn btn-primary w-100 mt-3"
+                                            onClick={() => handleViewSeats(flight.id)}
+                                        >
+                                            <i className="fas fa-chair me-2"></i>
+                                            Select Seats
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                </>
             )}
 
             {selectedFlight && (
