@@ -11,32 +11,54 @@ const BookFlight = () => {
     const [selectedSeats, setSelectedSeats] = useState([]);
     const [routeInfo, setRouteInfo] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const token = localStorage.getItem('token');
 
     useEffect(() => {
         const fetchData = async () => {
             try {
+                setError(null);
+                
                 // First fetch the route information using the routeId from URL
                 const routeRes = await axios.get(`/FlightRoutes/${routeId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setRouteInfo(routeRes.data);
+                console.log('Route Info:', routeRes.data); // Debug log
 
                 // Then fetch flights for this route
                 const flightsRes = await axios.get(`/Flights/route/${routeId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setFlights(flightsRes.data);
+                console.log('Flights:', flightsRes.data); // Debug log
 
             } catch (err) {
                 console.error('Error fetching data:', err);
+                setError('Failed to load flight and route information. Please try again.');
+                
+                // Fallback: Try to get route info from all routes if direct fetch fails
+                try {
+                    const allRoutesRes = await axios.get('/FlightRoutes', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    const route = allRoutesRes.data.find(r => r.id === parseInt(routeId));
+                    if (route) {
+                        setRouteInfo(route);
+                        console.log('Fallback Route Info:', route);
+                    }
+                } catch (fallbackErr) {
+                    console.error('Fallback route fetch failed:', fallbackErr);
+                }
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchData();
+        if (routeId) {
+            fetchData();
+        }
     }, [routeId, token]);
 
     const handleViewSeats = async (flightId) => {
@@ -62,13 +84,22 @@ const BookFlight = () => {
     };
 
     const calculateTotalFare = () => {
-        if (!routeInfo || selectedSeats.length === 0) return 0;
+        if (!routeInfo || !routeInfo.fare || selectedSeats.length === 0) return 0;
         return routeInfo.fare * selectedSeats.length;
+    };
+
+    const getFarePerSeat = () => {
+        return routeInfo?.fare || 0;
     };
 
     const handleBooking = async () => {
         if (!selectedFlight || selectedSeats.length === 0) {
             alert("Please select a flight and at least one seat.");
+            return;
+        }
+
+        if (!routeInfo || !routeInfo.fare) {
+            alert("Unable to calculate fare. Please refresh the page and try again.");
             return;
         }
 
@@ -80,7 +111,7 @@ const BookFlight = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            alert("Booking successful! Redirecting to payments...");
+            alert(`Booking successful! Total amount: ₹${calculateTotalFare()}. Redirecting to payments...`);
             navigate('/passenger/payments');
         } catch (err) {
             console.error('Booking error:', err);
@@ -96,6 +127,23 @@ const BookFlight = () => {
                         <span className="visually-hidden">Loading...</span>
                     </div>
                     <p className="mt-2">Loading flights and route information...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error && !routeInfo) {
+        return (
+            <div className="container mt-4">
+                <div className="alert alert-danger">
+                    <i className="fas fa-exclamation-triangle me-2"></i>
+                    {error}
+                    <div className="mt-2">
+                        <button className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>
+                            <i className="fas fa-refresh me-2"></i>
+                            Retry
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -121,7 +169,8 @@ const BookFlight = () => {
                                 <div className="col-sm-6">
                                     <p className="mb-1">
                                         <i className="fas fa-rupee-sign me-2"></i>
-                                        <strong>Base Fare per seat:</strong> ₹{routeInfo.fare}
+                                        <strong>Base Fare per seat:</strong> 
+                                        <span className="text-success fw-bold ms-1">₹{getFarePerSeat()}</span>
                                     </p>
                                 </div>
                                 <div className="col-sm-6">
@@ -134,11 +183,14 @@ const BookFlight = () => {
                         </div>
                         {selectedSeats.length > 0 && (
                             <div className="col-md-4 text-end">
-                                <div className="bg-white p-3 rounded border">
-                                    <h6 className="text-primary mb-1">Your Selection</h6>
+                                <div className="bg-white p-3 rounded border shadow-sm">
+                                    <h6 className="text-primary mb-1">
+                                        <i className="fas fa-calculator me-2"></i>
+                                        Your Selection
+                                    </h6>
                                     <h4 className="text-success mb-1">₹{calculateTotalFare()}</h4>
                                     <small className="text-muted">
-                                        {selectedSeats.length} seat{selectedSeats.length > 1 ? 's' : ''} × ₹{routeInfo.fare}
+                                        {selectedSeats.length} seat{selectedSeats.length > 1 ? 's' : ''} × ₹{getFarePerSeat()}
                                     </small>
                                 </div>
                             </div>
@@ -147,10 +199,24 @@ const BookFlight = () => {
                 </div>
             )}
 
+            {/* Error message if route info is missing */}
+            {!routeInfo && (
+                <div className="alert alert-warning mb-4">
+                    <i className="fas fa-exclamation-triangle me-2"></i>
+                    Route information is not available. Fare calculation may not work properly.
+                </div>
+            )}
+
             {flights.length === 0 ? (
                 <div className="alert alert-warning">
                     <i className="fas fa-exclamation-triangle me-2"></i>
                     No flights found for this route.
+                    <div className="mt-2">
+                        <a href="/passenger/search" className="btn btn-primary btn-sm">
+                            <i className="fas fa-search me-2"></i>
+                            Search Other Routes
+                        </a>
+                    </div>
                 </div>
             ) : (
                 <div className="row mb-4">
@@ -167,6 +233,12 @@ const BookFlight = () => {
                                         <strong>Departure:</strong> {new Date(flight.departureTime).toLocaleString()}<br />
                                         <strong>Arrival:</strong> {new Date(flight.arrivalTime).toLocaleString()}<br />
                                         <strong>Total Seats:</strong> {flight.totalSeats}
+                                        {routeInfo && (
+                                            <>
+                                                <br />
+                                                <strong>Fare per seat:</strong> <span className="text-success">₹{getFarePerSeat()}</span>
+                                            </>
+                                        )}
                                     </p>
                                     <button
                                         className="btn btn-primary w-100"
@@ -240,15 +312,33 @@ const BookFlight = () => {
                                             <p className="mb-1"><strong>Flight:</strong> {selectedFlight.flightNumber}</p>
                                         </div>
                                         <div className="col-md-6">
-                                            <p className="mb-1"><strong>Fare per seat:</strong> ₹{routeInfo?.fare || 0}</p>
-                                            <p className="mb-1"><strong>Total Amount:</strong> <span className="text-success fw-bold">₹{calculateTotalFare()}</span></p>
+                                            <p className="mb-1">
+                                                <strong>Fare per seat:</strong> 
+                                                <span className="text-success fw-bold ms-1">₹{getFarePerSeat()}</span>
+                                            </p>
+                                            <p className="mb-1">
+                                                <strong>Total Amount:</strong> 
+                                                <span className="text-success fw-bold fs-5 ms-1">₹{calculateTotalFare()}</span>
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
-                                <button className="btn btn-success btn-lg" onClick={handleBooking}>
+                                <button 
+                                    className="btn btn-success btn-lg" 
+                                    onClick={handleBooking}
+                                    disabled={!routeInfo || !routeInfo.fare}
+                                >
                                     <i className="fas fa-credit-card me-2"></i>
                                     Confirm Booking - ₹{calculateTotalFare()}
                                 </button>
+                                {(!routeInfo || !routeInfo.fare) && (
+                                    <div className="mt-2">
+                                        <small className="text-danger">
+                                            <i className="fas fa-exclamation-triangle me-1"></i>
+                                            Unable to calculate fare. Please refresh the page.
+                                        </small>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
